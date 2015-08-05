@@ -31,11 +31,12 @@ class DummyConnection(object):
 
 
 class TestConnectionPool(object):
-    def get_pool(self, connection_kwargs=None, max_connections=None, connection_class=DummyConnection):
+    def get_pool(self, connection_kwargs=None, max_connections=None, max_connections_per_node=None, connection_class=DummyConnection):
         connection_kwargs = connection_kwargs or {}
         pool = ClusterConnectionPool(
             connection_class=connection_class,
             max_connections=max_connections,
+            max_connections_per_node=max_connections_per_node,
             startup_nodes=[{"host": "127.0.0.1", "port": 7000}],
             **connection_kwargs)
         return pool
@@ -55,6 +56,15 @@ class TestConnectionPool(object):
 
     def test_max_connections(self):
         pool = self.get_pool(max_connections=2)
+        pool.get_connection_by_node({"host": "127.0.0.1", "port": 7000})
+        pool.get_connection_by_node({"host": "127.0.0.1", "port": 7001})
+        with pytest.raises(RedisClusterException):
+            pool.get_connection_by_node({"host": "127.0.0.1", "port": 7000})
+
+    def test_max_connections_per_node(self):
+        pool = self.get_pool(max_connections=2, max_connections_per_node=True)
+        pool.get_connection_by_node({"host": "127.0.0.1", "port": 7000})
+        pool.get_connection_by_node({"host": "127.0.0.1", "port": 7001})
         pool.get_connection_by_node({"host": "127.0.0.1", "port": 7000})
         pool.get_connection_by_node({"host": "127.0.0.1", "port": 7001})
         with pytest.raises(RedisClusterException):
